@@ -16,6 +16,13 @@ export default function EditQuiz() {
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [newQuestion, setNewQuestion] = useState({ type: 'MCQ', text: '' });
   const [newOption, setNewOption] = useState({ text: '', isCorrect: false });
+  const [mcqOptions, setMcqOptions] = useState([
+    { text: '', isCorrect: false },
+    { text: '', isCorrect: false },
+    { text: '', isCorrect: false },
+    { text: '', isCorrect: false },
+  ]);
+  const [trueFalseAnswer, setTrueFalseAnswer] = useState('True');
 
   useEffect(() => {
     fetchQuiz();
@@ -43,12 +50,43 @@ export default function EditQuiz() {
     }
 
     try {
-      await questionAPI.addQuestion(quizId, newQuestion.type, newQuestion.text);
-      setSuccess('Question added! Now add options.');
+      const response = await questionAPI.addQuestion(quizId, newQuestion.type, newQuestion.text);
+      const questionId = response.data.id;
+      
+      // Auto-create options based on question type
+      if (newQuestion.type === 'TRUE_FALSE') {
+        await optionAPI.addOption(questionId, 'True', trueFalseAnswer === 'True', 1);
+        await optionAPI.addOption(questionId, 'False', trueFalseAnswer === 'False', 2);
+        setSuccess('True/False question added with options!');
+        setTrueFalseAnswer('True');
+      } else if (newQuestion.type === 'MCQ') {
+        // Filter out empty options and add them
+        const validOptions = mcqOptions.filter(opt => opt.text.trim() !== '');
+        if (validOptions.length < 2) {
+          setError('Please add at least 2 options for MCQ');
+          // Delete the question since it was already created
+          await questionAPI.deleteQuestion(quizId, questionId);
+          return;
+        }
+        
+        for (let i = 0; i < validOptions.length; i++) {
+          await optionAPI.addOption(questionId, validOptions[i].text, validOptions[i].isCorrect, i + 1);
+        }
+        setSuccess('MCQ question added with ' + validOptions.length + ' options!');
+        setMcqOptions([
+          { text: '', isCorrect: false },
+          { text: '', isCorrect: false },
+          { text: '', isCorrect: false },
+          { text: '', isCorrect: false },
+        ]);
+      } else {
+        setSuccess('Text question added!');
+      }
+      
       setNewQuestion({ type: 'MCQ', text: '' });
       await fetchQuiz();
     } catch (err) {
-      setError('Failed to add question');
+      setError('Failed to add question: ' + (err.response?.data?.message || err.message));
       console.error(err);
     }
   };
@@ -174,8 +212,12 @@ export default function EditQuiz() {
                           </div>
                         ))}
                       </div>
+                    ) : question.type === 'TEXT' ? (
+                      <p style={{ fontSize: '0.9rem', color: '#666', fontStyle: 'italic' }}>
+                        ✍️ Text answer (no options needed)
+                      </p>
                     ) : (
-                      <p style={{ fontSize: '0.9rem', color: '#999' }}>No options yet</p>
+                      <p style={{ fontSize: '0.9rem', color: '#e53935' }}>⚠️ No options - click "Add Option" below</p>
                     )}
 
                     {editingQuestion === question.id && (
@@ -210,12 +252,14 @@ export default function EditQuiz() {
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column', marginLeft: '1rem' }}>
-                    <button
-                      onClick={() => setEditingQuestion(question.id)}
-                      disabled={editingQuestion !== null && editingQuestion !== question.id}
-                    >
-                      {editingQuestion === question.id ? 'Adding...' : 'Add Option'}
-                    </button>
+                    {question.type === 'MCQ' && (
+                      <button
+                        onClick={() => setEditingQuestion(question.id)}
+                        disabled={editingQuestion !== null && editingQuestion !== question.id}
+                      >
+                        {editingQuestion === question.id ? 'Adding...' : 'Add Option'}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteQuestion(question.id)}
                       style={{ background: '#d32f2f' }}
@@ -253,9 +297,98 @@ export default function EditQuiz() {
               onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
               placeholder="Enter your question"
               style={{ minHeight: '100px' }}
+              required
             />
           </div>
-          <button type="submit">Add Question</button>
+
+          {/* MCQ Options */}
+          {newQuestion.type === 'MCQ' && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Answer Options</h3>
+              {mcqOptions.map((option, index) => (
+                <div key={index} style={{ marginBottom: '0.75rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 'bold' }}>
+                    Option {index + 1}
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={option.text}
+                      onChange={(e) => {
+                        const newOptions = [...mcqOptions];
+                        newOptions[index].text = e.target.value;
+                        setMcqOptions(newOptions);
+                      }}
+                      placeholder={`Enter option ${index + 1}`}
+                      style={{ flex: 1 }}
+                    />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="checkbox"
+                        checked={option.isCorrect}
+                        onChange={(e) => {
+                          const newOptions = [...mcqOptions];
+                          newOptions[index].isCorrect = e.target.checked;
+                          setMcqOptions(newOptions);
+                        }}
+                        style={{ width: 'auto', margin: 0 }}
+                      />
+                      <span style={{ fontSize: '0.9rem' }}>Correct</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setMcqOptions([...mcqOptions, { text: '', isCorrect: false }])}
+                style={{ marginTop: '0.5rem', background: '#666', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+              >
+                + Add More Option
+              </button>
+            </div>
+          )}
+
+          {/* True/False Options */}
+          {newQuestion.type === 'TRUE_FALSE' && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Select Correct Answer</h3>
+              <div style={{ display: 'flex', gap: '2rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="trueFalse"
+                    value="True"
+                    checked={trueFalseAnswer === 'True'}
+                    onChange={(e) => setTrueFalseAnswer(e.target.value)}
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  <span style={{ fontSize: '1rem', fontWeight: '500' }}>True</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="trueFalse"
+                    value="False"
+                    checked={trueFalseAnswer === 'False'}
+                    onChange={(e) => setTrueFalseAnswer(e.target.value)}
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  <span style={{ fontSize: '1rem', fontWeight: '500' }}>False</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Text Answer Info */}
+          {newQuestion.type === 'TEXT' && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#e3f2fd', borderRadius: '4px' }}>
+              <p style={{ margin: 0, color: '#1976d2' }}>
+                ℹ️ Text questions allow users to type their own answer. No options needed.
+              </p>
+            </div>
+          )}
+
+          <button type="submit" style={{ marginTop: '1rem' }}>Add Question</button>
         </form>
       </div>
     </div>
