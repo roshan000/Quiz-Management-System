@@ -29,7 +29,6 @@ public class Quiz {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JsonIgnore
     private List<Question> questions;
 
     @PrePersist

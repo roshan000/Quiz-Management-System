@@ -50,6 +50,7 @@ export default function EditQuiz() {
     }
 
     try {
+      setError('');
       const response = await questionAPI.addQuestion(quizId, newQuestion.type, newQuestion.text);
       const questionId = response.data.id;
       
@@ -84,9 +85,15 @@ export default function EditQuiz() {
       }
       
       setNewQuestion({ type: 'MCQ', text: '' });
+      
+      // Refresh the quiz to show the newly added question
       await fetchQuiz();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to add question: ' + (err.response?.data?.message || err.message));
+      setSuccess('');
       console.error(err);
     }
   };
