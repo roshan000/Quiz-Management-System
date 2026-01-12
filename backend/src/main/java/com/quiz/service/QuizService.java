@@ -81,6 +81,8 @@ public class QuizService {
     }
 
     public void deleteQuestion(Long questionId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
         questionRepository.deleteById(questionId);
     }
 
