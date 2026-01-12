@@ -3,6 +3,7 @@ package com.quiz.service;
 import com.quiz.entity.*;
 import com.quiz.exception.QuizNotFoundException;
 import com.quiz.repository.*;
+import com.quiz.exception.OptionNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,7 +90,7 @@ public class QuizService {
 
     public Option updateOption(Long optionId, String optionText, Boolean isCorrect) {
         Option option = optionRepository.findById(optionId)
-                .orElseThrow(() -> new RuntimeException("Option not found"));
+                .orElseThrow(() -> new OptionNotFoundException(optionId));
         option.setOptionText(optionText);
         option.setIsCorrect(isCorrect);
         return optionRepository.save(option);
