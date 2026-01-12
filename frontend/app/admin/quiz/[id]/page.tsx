@@ -200,7 +200,7 @@ export default function EditQuiz() {
                             }}
                           >
                             <span>
-                              {option.optionText}
+                              <strong>{String.fromCharCode(65 + option.orderNumber - 1)}.</strong> {option.optionText}
                               {option.isCorrect && <strong style={{ color: '#4caf50' }}> ✓</strong>}
                             </span>
                             <button

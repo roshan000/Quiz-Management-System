@@ -96,7 +96,7 @@ export default function TakeQuiz() {
 
                 {question.type === 'MCQ' && (
                   <div>
-                    {question.options && question.options.map((option) => (
+                    {question.options && question.options.map((option, optIdx) => (
                       <label
                         key={option.id}
                         style={{
@@ -118,7 +118,7 @@ export default function TakeQuiz() {
                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
                           style={{ marginRight: '0.75rem', width: 'auto' }}
                         />
-                        {option.optionText}
+                        <strong>{String.fromCharCode(65 + optIdx)}.</strong> {option.optionText}
                       </label>
                     ))}
                   </div>
